@@ -1,3 +1,840 @@
 # point
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>팀 승률 순위표</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
 
-	
+    body {
+      margin: 0;
+      font-family: "Segoe UI", sans-serif;
+      background: #f4f7fb;
+      color: #1f2937;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 40px auto;
+      padding: 20px;
+    }
+
+    .panel {
+      background: white;
+      border-radius: 18px;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.08);
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    h1 {
+      margin-top: 0;
+      margin-bottom: 16px;
+      font-size: 2rem;
+    }
+
+    .setup {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: end;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      min-width: 150px;
+    }
+
+    .field label {
+      margin-bottom: 6px;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    input {
+      padding: 10px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      font-size: 1rem;
+      outline: none;
+    }
+
+    button {
+      padding: 10px 18px;
+      border: none;
+      border-radius: 10px;
+      background: #2563eb;
+      color: white;
+      font-weight: 700;
+      cursor: pointer;
+      transition: 0.2s ease;
+    }
+
+    button:hover {
+      background: #1d4ed8;
+    }
+
+    .team-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .team-name-input {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 8px 10px;
+    }
+
+    .team-name-input span {
+      font-weight: 600;
+      color: #374151;
+      width: 18px;
+      text-align: center;
+    }
+
+    .team-name-input input {
+      width: 100%;
+      border: none;
+      background: transparent;
+      padding: 0;
+      font-size: 0.95rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    th, td {
+      padding: 14px;
+      border-bottom: 1px solid #e5e7eb;
+      text-align: center;
+    }
+
+    th {
+      background: #eff6ff;
+      font-size: 0.9rem;
+    }
+
+    .team-cell {
+      text-align: left;
+      font-weight: 700;
+    }
+
+    .score-buttons {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .small-btn {
+      padding: 7px 10px;
+      font-size: 0.8rem;
+      border-radius: 8px;
+    }
+
+    .win-btn {
+      background: #16a34a;
+    }
+    .win-btn:hover {
+      background: #15803d;
+    }
+
+    .draw-btn {
+      background: #f59e0b;
+    }
+    .draw-btn:hover {
+      background: #d97706;
+    }
+
+    .loss-btn {
+      background: #ef4444;
+    }
+    .loss-btn:hover {
+      background: #dc2626;
+    }
+
+    .rank-badge {
+      display: inline-block;
+      min-width: 28px;
+      height: 28px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #dbeafe;
+      color: #1d4ed8;
+      font-weight: 700;
+    }
+
+    .summary {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 20px;
+      color: #374151;
+      font-size: 0.95rem;
+    }
+
+    .summary span {
+      background: #f3f4f6;
+      border-radius: 999px;
+      padding: 8px 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="panel">
+      <h1>팀 순위표 / 승률 계산</h1>
+
+      <div class="setup">
+        <div class="field">
+          <label for="teamCount">팀 수</label>
+          <input id="teamCount" type="number" min="2" max="20" value="4" />
+        </div>
+
+        <button id="createTeamsBtn">팀 생성</button>
+      </div>
+
+      <div id="teamInputs" class="team-list"></div>
+    </div>
+
+    <div class="panel">
+      <div class="summary">
+        <span>점수 규칙: 승 = 3점, 무 = 1점, 패 = 0점</span>
+        <span>승률 계산: 승리 / (승리 + 패배)</span>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>순위</th>
+            <th>팀</th>
+            <th>승</th>
+            <th>무</th>
+            <th>패</th>
+            <th>점수</th>
+            <th>승률</th>
+            <th>기록</th>
+          </tr>
+        </thead>
+        <tbody id="teamTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    let teams = [];
+
+    const teamCountInput = document.getElementById("teamCount");
+    const teamInputs = document.getElementById("teamInputs");
+    const createTeamsBtn = document.getElementById("createTeamsBtn");
+    const teamTableBody = document.getElementById("teamTableBody");
+
+    function createDefaultTeams(count) {
+      const names = [
+        "팀 A", "팀 B", "팀 C", "팀 D", "팀 E", "팀 F",
+        "팀 G", "팀 H", "팀 I", "팀 J", "팀 K", "팀 L",
+        "팀 M", "팀 N", "팀 O", "팀 P", "팀 Q", "팀 R",
+        "팀 S", "팀 T"
+      ];
+
+      return Array.from({ length: count }, (_, i) => ({
+        name: names[i] || `팀 ${i + 1}`,
+        wins: 0,
+        draws: 0,
+        losses: 0
+      }));
+    }
+
+    function renderTeamInputs() {
+      const count = Math.max(2, Math.min(20, Number(teamCountInput.value) || 2));
+      teamCountInput.value = count;
+
+      const current = teams.length ? teams : createDefaultTeams(count);
+
+      teams = Array.from({ length: count }, (_, i) => {
+        const existing = current[i] || {};
+        return {
+          name: existing.name || `팀 ${i + 1}`,
+          wins: Number(existing.wins) || 0,
+          draws: Number(existing.draws) || 0,
+          losses: Number(existing.losses) || 0
+        };
+      });
+
+      teamInputs.innerHTML = "";
+
+      teams.forEach((team, index) => {
+        const wrapper = document.createElement("div");
+        wrapper.className = "team-name-input";
+
+        const number = document.createElement("span");
+        number.textContent = index + 1;
+
+        const input = document.createElement("input");
+        input.type = "text";
+        input.value = team.name;
+        input.placeholder = `팀 ${index + 1} 이름`;
+        input.addEventListener("input", (e) => {
+          teams[index].name = e.target.value.trim() || `팀 ${index + 1}`;
+          renderTable();
+        });
+
+        wrapper.appendChild(number);
+        wrapper.appendChild(input);
+        teamInputs.appendChild(wrapper);
+      });
+
+      renderTable();
+    }
+
+    function getPoints(team) {
+      return team.wins * 3 + team.draws * 1;
+    }
+
+    function getWinRate(team) {
+      const totalGames = team.wins + team.losses;
+
+      if (totalGames === 0) return 0;
+
+      return team.wins / totalGames;
+    }
+
+    function formatWinRate(rate) {
+      return Number(rate).toFixed(3); // 예: 0.750
+    }
+
+    function renderTable() {
+      const sorted = [...teams].sort((a, b) => {
+        const aPoints = getPoints(a);
+        const bPoints = getPoints(b);
+
+        if (bPoints !== aPoints) return bPoints - aPoints;
+        const aRate = getWinRate(a);
+        const bRate = getWinRate(b);
+        if (bRate !== aRate) return bRate - aRate;
+        if (b.wins !== a.wins) return b.wins - a.wins;
+        return a.name.localeCompare(b.name, "ko");
+      });
+
+      teamTableBody.innerHTML = "";
+
+      sorted.forEach((team, index) => {
+        const row = document.createElement("tr");
+
+        const rankCell = document.createElement("td");
+        rankCell.innerHTML = `<span class="rank-badge">${index + 1}</span>`;
+        row.appendChild(rankCell);
+
+        const nameCell = document.createElement("td");
+        nameCell.className = "team-cell";
+        nameCell.textContent = team.name;
+        row.appendChild(nameCell);
+
+        const winsCell = document.createElement("td");
+        winsCell.textContent = team.wins;
+        row.appendChild(winsCell);
+
+        const drawsCell = document.createElement("td");
+        drawsCell.textContent = team.draws;
+        row.appendChild(drawsCell);
+
+        const lossesCell = document.createElement("td");
+        lossesCell.textContent = team.losses;
+        row.appendChild(lossesCell);
+
+        const pointsCell = document.createElement("td");
+        pointsCell.textContent = getPoints(team);
+        row.appendChild(pointsCell);
+
+        const rateCell = document.createElement("td");
+        const rate = getWinRate(team);
+        rateCell.textContent = `${formatWinRate(rate)} (${(rate * 100).toFixed(1)}%)`;
+        row.appendChild(rateCell);
+
+        const actionCell = document.createElement("td");
+
+        const buttons = document.createElement("div");
+        buttons.className = "score-buttons";
+
+        const winBtn = document.createElement("button");
+        winBtn.className = "small-btn win-btn";
+        winBtn.textContent = "승";
+        winBtn.addEventListener("click", () => {
+          team.wins += 1;
+          renderTable();
+        });
+
+        const drawBtn = document.createElement("button");
+        drawBtn.className = "small-btn draw-btn";
+        drawBtn.textContent = "무";
+        drawBtn.addEventListener("click", () => {
+          team.draws += 1;
+          renderTable();
+        });
+
+        const lossBtn = document.createElement("button");
+        lossBtn.className = "small-btn loss-btn";
+        lossBtn.textContent = "패";
+        lossBtn.addEventListener("click", () => {
+          team.losses += 1;
+          renderTable();
+        });
+
+        buttons.appendChild(winBtn);
+        buttons.appendChild(drawBtn);
+        buttons.appendChild(lossBtn);
+        actionCell.appendChild(buttons);
+        row.appendChild(actionCell);
+
+        teamTableBody.appendChild(row);
+      });
+    }
+
+    createTeamsBtn.addEventListener("click", () => {
+      renderTeamInputs();
+    });
+
+    teamCountInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        renderTeamInputs();
+      }
+    });
+
+    renderTeamInputs();
+  </script>
+</body>
+</html><!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>팀 승률 순위표</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", sans-serif;
+      background: #f4f7fb;
+      color: #1f2937;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 40px auto;
+      padding: 20px;
+    }
+
+    .panel {
+      background: white;
+      border-radius: 18px;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.08);
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    h1 {
+      margin-top: 0;
+      margin-bottom: 16px;
+      font-size: 2rem;
+    }
+
+    .setup {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: end;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      min-width: 150px;
+    }
+
+    .field label {
+      margin-bottom: 6px;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    input {
+      padding: 10px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      font-size: 1rem;
+      outline: none;
+    }
+
+    button {
+      padding: 10px 18px;
+      border: none;
+      border-radius: 10px;
+      background: #2563eb;
+      color: white;
+      font-weight: 700;
+      cursor: pointer;
+      transition: 0.2s ease;
+    }
+
+    button:hover {
+      background: #1d4ed8;
+    }
+
+    .team-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .team-name-input {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 8px 10px;
+    }
+
+    .team-name-input span {
+      font-weight: 600;
+      color: #374151;
+      width: 18px;
+      text-align: center;
+    }
+
+    .team-name-input input {
+      width: 100%;
+      border: none;
+      background: transparent;
+      padding: 0;
+      font-size: 0.95rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    th, td {
+      padding: 14px;
+      border-bottom: 1px solid #e5e7eb;
+      text-align: center;
+    }
+
+    th {
+      background: #eff6ff;
+      font-size: 0.9rem;
+    }
+
+    .team-cell {
+      text-align: left;
+      font-weight: 700;
+    }
+
+    .score-buttons {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .small-btn {
+      padding: 7px 10px;
+      font-size: 0.8rem;
+      border-radius: 8px;
+    }
+
+    .win-btn {
+      background: #16a34a;
+    }
+    .win-btn:hover {
+      background: #15803d;
+    }
+
+    .draw-btn {
+      background: #f59e0b;
+    }
+    .draw-btn:hover {
+      background: #d97706;
+    }
+
+    .loss-btn {
+      background: #ef4444;
+    }
+    .loss-btn:hover {
+      background: #dc2626;
+    }
+
+    .rank-badge {
+      display: inline-block;
+      min-width: 28px;
+      height: 28px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #dbeafe;
+      color: #1d4ed8;
+      font-weight: 700;
+    }
+
+    .summary {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 20px;
+      color: #374151;
+      font-size: 0.95rem;
+    }
+
+    .summary span {
+      background: #f3f4f6;
+      border-radius: 999px;
+      padding: 8px 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="panel">
+      <h1>팀 순위표 / 승률 계산</h1>
+
+      <div class="setup">
+        <div class="field">
+          <label for="teamCount">팀 수</label>
+          <input id="teamCount" type="number" min="2" max="20" value="4" />
+        </div>
+
+        <button id="createTeamsBtn">팀 생성</button>
+      </div>
+
+      <div id="teamInputs" class="team-list"></div>
+    </div>
+
+    <div class="panel">
+      <div class="summary">
+        <span>점수 규칙: 승 = 3점, 무 = 1점, 패 = 0점</span>
+        <span>승률 계산: 승리 / (승리 + 패배)</span>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>순위</th>
+            <th>팀</th>
+            <th>승</th>
+            <th>무</th>
+            <th>패</th>
+            <th>점수</th>
+            <th>승률</th>
+            <th>기록</th>
+          </tr>
+        </thead>
+        <tbody id="teamTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    let teams = [];
+
+    const teamCountInput = document.getElementById("teamCount");
+    const teamInputs = document.getElementById("teamInputs");
+    const createTeamsBtn = document.getElementById("createTeamsBtn");
+    const teamTableBody = document.getElementById("teamTableBody");
+
+    function createDefaultTeams(count) {
+      const names = [
+        "팀 A", "팀 B", "팀 C", "팀 D", "팀 E", "팀 F",
+        "팀 G", "팀 H", "팀 I", "팀 J", "팀 K", "팀 L",
+        "팀 M", "팀 N", "팀 O", "팀 P", "팀 Q", "팀 R",
+        "팀 S", "팀 T"
+      ];
+
+      return Array.from({ length: count }, (_, i) => ({
+        name: names[i] || `팀 ${i + 1}`,
+        wins: 0,
+        draws: 0,
+        losses: 0
+      }));
+    }
+
+    function renderTeamInputs() {
+      const count = Math.max(2, Math.min(20, Number(teamCountInput.value) || 2));
+      teamCountInput.value = count;
+
+      const current = teams.length ? teams : createDefaultTeams(count);
+
+      teams = Array.from({ length: count }, (_, i) => {
+        const existing = current[i] || {};
+        return {
+          name: existing.name || `팀 ${i + 1}`,
+          wins: Number(existing.wins) || 0,
+          draws: Number(existing.draws) || 0,
+          losses: Number(existing.losses) || 0
+        };
+      });
+
+      teamInputs.innerHTML = "";
+
+      teams.forEach((team, index) => {
+        const wrapper = document.createElement("div");
+        wrapper.className = "team-name-input";
+
+        const number = document.createElement("span");
+        number.textContent = index + 1;
+
+        const input = document.createElement("input");
+        input.type = "text";
+        input.value = team.name;
+        input.placeholder = `팀 ${index + 1} 이름`;
+        input.addEventListener("input", (e) => {
+          teams[index].name = e.target.value.trim() || `팀 ${index + 1}`;
+          renderTable();
+        });
+
+        wrapper.appendChild(number);
+        wrapper.appendChild(input);
+        teamInputs.appendChild(wrapper);
+      });
+
+      renderTable();
+    }
+
+    function getPoints(team) {
+      return team.wins * 3 + team.draws * 1;
+    }
+
+    function getWinRate(team) {
+      const totalGames = team.wins + team.losses;
+
+      if (totalGames === 0) return 0;
+
+      return team.wins / totalGames;
+    }
+
+    function formatWinRate(rate) {
+      return Number(rate).toFixed(3); // 예: 0.750
+    }
+
+    function renderTable() {
+      const sorted = [...teams].sort((a, b) => {
+        const aPoints = getPoints(a);
+        const bPoints = getPoints(b);
+
+        if (bPoints !== aPoints) return bPoints - aPoints;
+        const aRate = getWinRate(a);
+        const bRate = getWinRate(b);
+        if (bRate !== aRate) return bRate - aRate;
+        if (b.wins !== a.wins) return b.wins - a.wins;
+        return a.name.localeCompare(b.name, "ko");
+      });
+
+      teamTableBody.innerHTML = "";
+
+      sorted.forEach((team, index) => {
+        const row = document.createElement("tr");
+
+        const rankCell = document.createElement("td");
+        rankCell.innerHTML = `<span class="rank-badge">${index + 1}</span>`;
+        row.appendChild(rankCell);
+
+        const nameCell = document.createElement("td");
+        nameCell.className = "team-cell";
+        nameCell.textContent = team.name;
+        row.appendChild(nameCell);
+
+        const winsCell = document.createElement("td");
+        winsCell.textContent = team.wins;
+        row.appendChild(winsCell);
+
+        const drawsCell = document.createElement("td");
+        drawsCell.textContent = team.draws;
+        row.appendChild(drawsCell);
+
+        const lossesCell = document.createElement("td");
+        lossesCell.textContent = team.losses;
+        row.appendChild(lossesCell);
+
+        const pointsCell = document.createElement("td");
+        pointsCell.textContent = getPoints(team);
+        row.appendChild(pointsCell);
+
+        const rateCell = document.createElement("td");
+        const rate = getWinRate(team);
+        rateCell.textContent = `${formatWinRate(rate)} (${(rate * 100).toFixed(1)}%)`;
+        row.appendChild(rateCell);
+
+        const actionCell = document.createElement("td");
+
+        const buttons = document.createElement("div");
+        buttons.className = "score-buttons";
+
+        const winBtn = document.createElement("button");
+        winBtn.className = "small-btn win-btn";
+        winBtn.textContent = "승";
+        winBtn.addEventListener("click", () => {
+          team.wins += 1;
+          renderTable();
+        });
+
+        const drawBtn = document.createElement("button");
+        drawBtn.className = "small-btn draw-btn";
+        drawBtn.textContent = "무";
+        drawBtn.addEventListener("click", () => {
+          team.draws += 1;
+          renderTable();
+        });
+
+        const lossBtn = document.createElement("button");
+        lossBtn.className = "small-btn loss-btn";
+        lossBtn.textContent = "패";
+        lossBtn.addEventListener("click", () => {
+          team.losses += 1;
+          renderTable();
+        });
+
+        buttons.appendChild(winBtn);
+        buttons.appendChild(drawBtn);
+        buttons.appendChild(lossBtn);
+        actionCell.appendChild(buttons);
+        row.appendChild(actionCell);
+
+        teamTableBody.appendChild(row);
+      });
+    }
+
+    createTeamsBtn.addEventListener("click", () => {
+      renderTeamInputs();
+    });
+
+    teamCountInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        renderTeamInputs();
+      }
+    });
+
+    renderTeamInputs();
+  </script>
+</body>
+</html>
